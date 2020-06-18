@@ -188,13 +188,22 @@ let all_checkers =
         (let annot_reach =
            interprocedural Payloads.Fields.annot_map AnnotationReachability.checker
          in
-         [(annot_reach, Java); (annot_reach, Clang)] ) } ]
-
+         [(annot_reach, Java); (annot_reach, Clang)] ) }
+  ; { checker= Mychecker
+    ; callbacks= [(interprocedural Payloads.Fields.lab_resource_leaks ResourceLeaks.checker, Java)]
+    }
+  (*
+  ; { checker=Mychecker
+    ; callbacks= [(interprocedural Payloads.Fields.class_loads ClassLoads.analyze_procedure, Java)]
+    } ]
+  *)
+  ; { checker= PrintCapture
+    ; callbacks= [(interprocedural Payloads.Fields.my_print_checker Print.checker, Clang)]
+    } ]
 
 let get_active_checkers () =
   let filter_checker {checker} = Config.is_checker_enabled checker in
   List.filter ~f:filter_checker all_checkers
-
 
 let register checkers =
   let register_one {checker; callbacks} =

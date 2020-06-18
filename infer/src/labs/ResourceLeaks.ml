@@ -48,6 +48,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let exec_instr (astate : ResourceLeakDomain.t)
       {InterproceduralAnalysis.proc_desc= _; tenv= _; analyze_dependency= _; _} _
       (instr : HilInstr.t) =
+        Printf.printf "####################################################\n";
     match instr with
     | Call (_return_opt, Direct _callee_procname, _actuals, _, _loc) ->
         (* function call [return_opt] := invoke [callee_procname]([actuals]) *)
@@ -80,7 +81,7 @@ let report_if_leak {InterproceduralAnalysis.proc_desc; err_log; _} post =
   let change_me = false in
   if change_me then
     let last_loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
-    let message = F.asprintf "Leaked %a resource(s)" ResourceLeakDomain.pp post in
+    let message = F.asprintf "@@@ Leaked %a resource(s)" ResourceLeakDomain.pp post in
     Reporting.log_error proc_desc err_log ~loc:last_loc ResourceLeakLabExercise
       IssueType.lab_resource_leak message
 

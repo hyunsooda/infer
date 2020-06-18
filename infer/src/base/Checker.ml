@@ -35,6 +35,8 @@ type t =
   | Starvation
   | TOPL
   | Uninit
+  | Mychecker
+  | PrintCapture
 [@@deriving equal, enumerate]
 
 type support = NoSupport | Support | ExperimentalSupport | ToySupport
@@ -272,6 +274,20 @@ let config checker =
       ; short_documentation= "checker for use of uninitialized values"
       ; cli_flags= Some {long= "uninit"; deprecated= []; show_in_help= true}
       ; enabled_by_default= true
+      ; activates= [] }
+  | Mychecker ->
+      { name= "My Checker"
+      ; support= supports_clang_and_java
+      ; short_documentation= "My Checker"
+      ; cli_flags= Some {long= "mychecker"; deprecated= []; show_in_help= true}
+      ; enabled_by_default= false
+      ; activates= [] }
+  | PrintCapture ->
+      { name= "PrintCapture"
+      ; support= supports_clang_and_java
+      ; short_documentation= "PrintCaptrue"
+      ; cli_flags= Some {long= "printcapture"; deprecated= []; show_in_help= true}
+      ; enabled_by_default= false
       ; activates= [] }
 
 

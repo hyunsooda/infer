@@ -35,6 +35,8 @@ type t =
   | Starvation
   | TOPL
   | Uninit
+  | Mychecker
+  | PrintCapture 
 [@@deriving equal, enumerate]
 
 (** per-language support for each checker *)

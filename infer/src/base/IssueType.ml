@@ -488,9 +488,10 @@ let javascript_injection = register_from_string ~id:"JAVASCRIPT_INJECTION" Quand
 
 let lab_resource_leak = register_from_string ~id:"LAB_RESOURCE_LEAK" ResourceLeakLabExercise
 
+let print_capture = register_from_string ~id:"PRINT_CAPTURE" PrintCapture
+
 let leak_after_array_abstraction =
   register_from_string ~id:"Leak_after_array_abstraction" Biabduction
-
 
 let leak_in_footprint = register_from_string ~id:"Leak_in_footprint" Biabduction
 
