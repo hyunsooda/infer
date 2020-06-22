@@ -199,7 +199,10 @@ let all_checkers =
   *)
   ; { checker= PrintCapture
     ; callbacks= [(interprocedural Payloads.Fields.my_print_checker Print.checker, Clang)]
-    } ]
+    }
+ ; { checker= MisuseChecker
+    ; callbacks= [(interprocedural Payloads.Fields.my_misuse_checker Mapchecker.checker, Clang)]
+    }]
 
 let get_active_checkers () =
   let filter_checker {checker} = Config.is_checker_enabled checker in

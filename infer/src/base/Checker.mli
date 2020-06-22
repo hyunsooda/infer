@@ -37,6 +37,7 @@ type t =
   | Uninit
   | Mychecker
   | PrintCapture 
+  | MisuseChecker
 [@@deriving equal, enumerate]
 
 (** per-language support for each checker *)

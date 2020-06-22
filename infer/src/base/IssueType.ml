@@ -490,6 +490,8 @@ let lab_resource_leak = register_from_string ~id:"LAB_RESOURCE_LEAK" ResourceLea
 
 let print_capture = register_from_string ~id:"PRINT_CAPTURE" PrintCapture
 
+let misuse_checker = register_from_string ~id:"C++_MISUSE_CHECKER" MisuseChecker
+
 let leak_after_array_abstraction =
   register_from_string ~id:"Leak_after_array_abstraction" Biabduction
 

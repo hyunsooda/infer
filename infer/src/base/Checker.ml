@@ -37,6 +37,7 @@ type t =
   | Uninit
   | Mychecker
   | PrintCapture
+  | MisuseChecker
 [@@deriving equal, enumerate]
 
 type support = NoSupport | Support | ExperimentalSupport | ToySupport
@@ -287,6 +288,13 @@ let config checker =
       ; support= supports_clang_and_java
       ; short_documentation= "PrintCaptrue"
       ; cli_flags= Some {long= "printcapture"; deprecated= []; show_in_help= true}
+      ; enabled_by_default= false
+      ; activates= [] }
+  | MisuseChecker ->
+      { name= "MisuseChecker"
+      ; support= supports_clang_and_java
+      ; short_documentation= "MisuseChecker"
+      ; cli_flags= Some {long= "misusechecker"; deprecated= []; show_in_help= true}
       ; enabled_by_default= false
       ; activates= [] }
 

@@ -252,6 +252,8 @@ val lab_resource_leak : t
 
 val print_capture : t
 
+val misuse_checker : t
+
 val leak_after_array_abstraction : t
 
 val leak_in_footprint : t
