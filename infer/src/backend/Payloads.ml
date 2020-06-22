@@ -16,7 +16,7 @@ type t =
   ; class_loads: ClassLoadsDomain.summary option
   ; cost: CostDomain.summary option
   ; lab_resource_leaks: ResourceLeakDomain.summary option
-  ; my_print_checker: PrintDomain.NullnessMemory.summary option
+  ; my_print_checker: PrintDomain.NullTable.t option
   ; litho_required_props: LithoDomain.summary option
   ; pulse: PulseSummary.t option
   ; purity: PurityDomain.summary option
@@ -49,7 +49,7 @@ let fields =
     ~racerd:(fun f -> mk f "RacerD" RacerDDomain.pp_summary)
     ~lab_resource_leaks:(fun f -> mk f "Resource Leaks Lab" ResourceLeakDomain.pp)
     (*~my_print_checker:(fun f -> mk f "Print function capture checker" (F.fprintf F.std_formatter "hyunsoo shin"))*)
-    ~my_print_checker:(fun f -> mk f "Print function capture checker" PrintDomain.NullnessMemory.pp )
+    ~my_print_checker:(fun f -> mk f "Print function capture checker" PrintDomain.NullTable.pp )
     ~siof:(fun f -> mk f "Siof" SiofDomain.Summary.pp)
     ~starvation:(fun f -> mk f "Starvation" StarvationDomain.pp_summary)
     ~nullsafe:(fun f -> mk f "Nullsafe" NullsafeSummary.pp)
