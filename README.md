@@ -1,3 +1,7 @@
+# 현재 지원하는 체커들 (현재는 아주 간단한 문법으로 구성되있는 코드만 가능)
+## Potential null checker domain
+	`infer -g --printcapture -- clang++ hello.cpp`
+
 # Infer [![Build Status](https://travis-ci.org/facebook/infer.svg?branch=master)](https://travis-ci.org/facebook/infer)
 
 [Infer](http://fbinfer.com/) is a static analysis tool for Java,
