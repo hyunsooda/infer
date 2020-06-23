@@ -1,1 +1,2 @@
-module MapDomain : Domain.DOMAIN
+(* module RangeMemTable : Domain.DOMAIN *)
+module RangeMemTable : Table.TABLE

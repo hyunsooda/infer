@@ -11,5 +11,7 @@ module type DOMAIN = sig
 
   val pp : F.formatter -> t -> unit
 
+  val bottom : t
+
   val initial : t
 end

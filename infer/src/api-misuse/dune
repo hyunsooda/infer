@@ -7,7 +7,7 @@
 (library
  (name MisuseChecker)
  (public_name infer.MisuseChecker)
- (modules_without_implementation domain)
+ (modules_without_implementation domain table)
  (flags
   (:standard -open IR -open IStdlib -open IStd -open ATDGenerated
      -open IBase -open Absint))

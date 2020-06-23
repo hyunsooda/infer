@@ -8,4 +8,4 @@
 open! IStd
 
 val checker :
-  Mapdomain.MapDomain.t InterproceduralAnalysis.t -> Mapdomain.MapDomain.t option
+  Mapdomain.RangeMemTable.t InterproceduralAnalysis.t -> Mapdomain.RangeMemTable.t option

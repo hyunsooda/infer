@@ -185,7 +185,7 @@ module Variable : VARIABLE = struct
 end
 
 module Memory (Nullness : NULLNESS) : MEMORY = struct
-  module M = Stdlib.Map.Make (Variable) (* (line * col * varinfo) --> value *)
+  module M = Stdlib.Map.Make (Variable)
 
   module N = Nullness
 

@@ -21,7 +21,7 @@ include sig
     ; cost: CostDomain.summary option
     ; lab_resource_leaks: ResourceLeakDomain.summary option
     ; my_print_checker: PrintDomain.NullTable.t option
-    ; my_misuse_checker: Mapdomain.MapDomain.t option
+    ; my_misuse_checker: Mapdomain.RangeMemTable.t option
     ; litho_required_props: LithoDomain.summary option
     ; pulse: PulseSummary.t option
     ; purity: PurityDomain.summary option
