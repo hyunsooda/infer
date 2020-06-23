@@ -42,14 +42,26 @@ module Allocsite : sig
   val eq : t -> t -> Boolean.t
 end
 
+module MapLoc : sig
+  type t = Allocsite.t * IdxDom.Idx.t 
+
+  val make : Allocsite.t -> IdxDom.Idx.t -> t
+
+  val to_string : t -> string
+
+  val pp : Format.formatter -> t -> unit
+end
+
 module Loc : sig
-  type prim = private Var of Var.t | Allocsite of Allocsite.t [@@deriving compare]
+  type prim = private Var of Var.t | Allocsite of Allocsite.t | Maploc of MapLoc.t
 
   type t = prim BufferOverrunField.t [@@deriving compare, equal]
 
   include PrettyPrintable.PrintableOrderedType with type t := t
 
   val of_allocsite : Allocsite.t -> t
+
+  val of_maploc : Allocsite.t -> IdxDom.Idx.t -> t
 
   val of_c_strlen : t -> t
   (** It appends the [strlen] field. *)
@@ -61,6 +73,8 @@ module Loc : sig
   val of_pvar : Pvar.t -> t
 
   val of_var : Var.t -> t
+
+  val get_allocsite : t -> Allocsite.t option
 
   val unknown : t
 

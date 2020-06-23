@@ -488,8 +488,6 @@ let javascript_injection = register_from_string ~id:"JAVASCRIPT_INJECTION" Quand
 
 let lab_resource_leak = register_from_string ~id:"LAB_RESOURCE_LEAK" ResourceLeakLabExercise
 
-let print_capture = register_from_string ~id:"PRINT_CAPTURE" PrintCapture
-
 let misuse_checker = register_from_string ~id:"C++_MISUSE_CHECKER" MisuseChecker
 
 let leak_after_array_abstraction =
@@ -659,6 +657,9 @@ let wrong_argument_number =
 
 let unreachable_cost_call ~kind =
   register_from_cost_string ~enabled:false ~kind "%s_UNREACHABLE_AT_EXIT"
+
+
+let map_invalid_access = register_from_string ~id:"Invalid Map Access" BufferOverrunChecker 
 
 
 (* register enabled cost issues *)

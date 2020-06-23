@@ -283,8 +283,18 @@ module Check = struct
     in
     ArrayBlk.fold array_access1 (Dom.Val.get_array_blk arr) cond_set
 
+  let map_access ~value ~cur_idx ~latest_prune location cond_set =
+    let idx_traces = Dom.Val.get_traces value in 
+    let cur_idx =
+      match Dom.Val.get_itv cur_idx with
+      | NonBottom idx -> idx
+      | _ -> Stdlib.failwith "Never happen123"
+    in
+    PO.ConditionSet.add_map_access location ~idx_traces ~value ~cur_idx ~latest_prune cond_set
 
+    
   let lindex integer_type_widths ~array_exp ~index_exp ~last_included mem location cond_set =
+    Printf.printf "lindex \n";
     let idx = Sem.eval integer_type_widths index_exp mem in
     let arr =
       if Language.curr_language_is Java then
@@ -295,6 +305,12 @@ module Check = struct
     let latest_prune = Dom.Mem.get_latest_prune mem in
     array_access ~arr ~idx ~is_plus:true ~last_included ~latest_prune location cond_set
 
+  let map_index integer_type_widths ~array_exp ~index_exp mem location cond_set =
+    let idx = Sem.eval integer_type_widths index_exp mem in
+    let idx = Dom.Val.get_itv idx in
+    let arr = Sem.eval_arr integer_type_widths array_exp mem in
+    Format.fprintf Format.std_formatter "\nmap_index %a \n" Itv.pp idx;
+    cond_set
 
   let array_access_byte ~arr ~idx ~is_plus ~last_included ~latest_prune location cond_set =
     let taint = get_taint arr idx in

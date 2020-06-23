@@ -1,1 +1,0 @@
-module MapDomain : Domain.DOMAIN

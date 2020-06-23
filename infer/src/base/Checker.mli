@@ -36,7 +36,6 @@ type t =
   | TOPL
   | Uninit
   | Mychecker
-  | PrintCapture 
   | MisuseChecker
 [@@deriving equal, enumerate]
 

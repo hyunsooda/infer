@@ -193,16 +193,17 @@ let all_checkers =
     ; callbacks= [(interprocedural Payloads.Fields.lab_resource_leaks ResourceLeaks.checker, Java)]
     }
   (*
-  ; { checker=Mychecker
-    ; callbacks= [(interprocedural Payloads.Fields.class_loads ClassLoads.analyze_procedure, Java)]
-    } ]
-  *)
-  ; { checker= PrintCapture
-    ; callbacks= [(interprocedural Payloads.Fields.my_print_checker Print.checker, Clang)]
-    }
- ; { checker= MisuseChecker
+  ; { checker= MisuseChecker
     ; callbacks= [(interprocedural Payloads.Fields.my_misuse_checker Mapchecker.checker, Clang)]
     }]
+  *)
+  ; { checker= MisuseChecker
+    ; callbacks=
+        (let bo_checker =
+           interprocedural2 Payloads.Fields.buffer_overrun_checker
+             Payloads.Fields.buffer_overrun_analysis MisuseMapChecker.checker
+         in
+         [(bo_checker, Clang); (bo_checker, Java)] ) }]
 
 let get_active_checkers () =
   let filter_checker {checker} = Config.is_checker_enabled checker in

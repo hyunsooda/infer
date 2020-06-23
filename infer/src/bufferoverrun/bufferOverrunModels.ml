@@ -522,7 +522,6 @@ module ArrObjCommon = struct
   let eval_size model_env exp ~fn mem =
     Sem.eval_array_locs_length (deref_of model_env exp ~fn mem) mem
 
-
   let size_exec exp ~fn ({integer_type_widths} as model_env) ~ret:(id, _) mem =
     let locs = Sem.eval integer_type_widths exp mem |> Dom.Val.get_all_locs in
     match PowLoc.is_singleton_or_more locs with
@@ -532,7 +531,6 @@ module ArrObjCommon = struct
         let arr_locs = deref_of model_env exp ~fn mem in
         let mem = Dom.Mem.add_stack (Loc.of_id id) (Sem.eval_array_locs_length arr_locs mem) mem in
         load_size_alias id arr_locs mem
-
 
   let at arr_exp ~fn index_exp =
     let exec ({pname; location} as model_env) ~ret:(id, typ) mem =
@@ -546,8 +544,36 @@ module ArrObjCommon = struct
       let idx = Sem.eval integer_type_widths index_exp mem in
       let arr = Dom.Mem.find_set (deref_of model_env arr_exp ~fn mem) mem in
       let latest_prune = Dom.Mem.get_latest_prune mem in
-      BoUtils.Check.array_access ~arr ~idx ~is_plus:true ~last_included:false ~latest_prune location
-        cond_set
+
+			let arr_loc = Dom.Val.get_array_locs arr in
+			match PowLoc.to_set arr_loc |> LocSet.elements |> List.hd with
+			| None ->
+					BoUtils.Check.array_access ~arr ~idx ~is_plus:true ~last_included:false ~latest_prune location
+						cond_set
+			| Some loc ->
+					 if Util.get_loc_str loc |> Util.is_cpp_map then
+						let cur_idx =
+							match Exp.program_vars index_exp |> Sequence.hd with
+							| None -> idx
+							| Some pvar -> Dom.Mem.find (Loc.of_pvar pvar) mem
+						in
+            (match Loc.get_allocsite loc with
+            | None ->
+                BoUtils.Check.array_access ~arr ~idx ~is_plus:true ~last_included:false ~latest_prune location
+                  cond_set
+            | Some allocsite ->
+                let itv_v = Dom.Val.get_itv cur_idx in
+                let maploc = Loc.of_maploc allocsite itv_v in
+                let maploc_v =
+                  (match Dom.Mem.find_opt maploc mem with
+                  | None -> Dom.Val.bot 
+                  | Some v -> v )
+                in
+                (* Format.fprintf Format.std_formatter "JJJ %a %a\n" Loc.pp maploc Dom.Val.pp maploc_v;*)
+                BoUtils.Check.map_access ~value:maploc_v ~cur_idx ~latest_prune location cond_set )
+          else
+            BoUtils.Check.array_access ~arr ~idx ~is_plus:true ~last_included:false ~latest_prune location
+              cond_set
     in
     {exec; check}
 
@@ -622,8 +648,7 @@ module StdVector = struct
     in
     {exec; check= no_check}
 
-
-  let at elt_typ {exp= vec_exp; typ= vec_typ} index_exp =
+  let at elt_typ {exp= vec_exp; typ= vec_typ;} index_exp =
     ArrObjCommon.at vec_exp ~fn:(BufferOverrunField.cpp_vector_elem ~vec_typ ~elt_typ) index_exp
 
 
@@ -1518,6 +1543,32 @@ module Call = struct
       ; -"std" &:: "vector" < capt_typ &+ any_typ >:: "vector"
         $ capt_arg_of_typ (-"std" &:: "vector")
         $--> StdVector.constructor_empty
+
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "data" $ capt_arg $--> StdVector.data
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "emplace_back" $ capt_arg $+ capt_exp
+        $--> StdVector.push_back
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "empty" $ capt_arg $--> StdVector.empty
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "operator[]"
+        $ capt_arg_of_typ (-"std" &:: "map")
+        $+ capt_exp $--> StdVector.at
+      ; -"std" &:: "map" < capt_typ &+ any_typ >:: "push_back" $ capt_arg $+ capt_exp
+        $--> StdVector.push_back
+      ; -"std" &:: "map" < any_typ &+ any_typ &+ any_typ &+ any_typ >:: "reserve" $ any_arg $+ any_arg $--> no_model
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "resize" $ capt_arg $+ capt_exp
+        $--> StdVector.resize
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "size" $ capt_arg $--> StdVector.size
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "map"
+        $ capt_arg_of_typ (-"std" &:: "map")
+        $+ capt_exp_of_prim_typ (Typ.mk (Typ.Tint Typ.size_t))
+        $+? any_arg $--> StdVector.constructor_size
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "map"
+        $ capt_arg_of_typ (-"std" &:: "map")
+        $+ capt_exp_of_typ (-"std" &:: "map")
+        $+? any_arg $--> StdVector.constructor_copy
+      ; -"std" &:: "map" < capt_typ &+ any_typ &+ any_typ &+ any_typ >:: "map"
+        $ capt_arg_of_typ (-"std" &:: "map")
+        $--> StdVector.constructor_empty
+
       ; (* Java models *)
         -"java.lang.Object" &:: "clone" <>$ capt_exp $--> Object.clone
       ; +PatternMatch.implements_arrays &:: "asList" <>$ capt_exp $!--> create_copy_array

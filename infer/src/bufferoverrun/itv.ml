@@ -141,6 +141,8 @@ module ItvPure = struct
 
   let set_lb lb (_, ub) = (lb, ub)
 
+  let set_ub ub (lb, _) = (lb, ub)
+
   let set_lb_zero = set_lb Bound.zero
 
   let top = (Bound.minf, Bound.pinf)
@@ -659,6 +661,16 @@ let of_bool = function
 
 let of_int : int -> t = fun n -> NonBottom (ItvPure.of_int n)
 
+let to_string : t -> string = function
+  | NonBottom itv ->
+      (match ItvPure.lb itv |> Bound.get_const, ItvPure.ub itv |> Bound.get_const with
+      | Some z1, Some z2 ->
+          let z1_str = Z.to_string z1 in
+          let z2_str = Z.to_string z2 in
+          if String.equal z1_str z2_str then z1_str else z1_str ^ z2_str
+      | _ -> "bot")
+  | _ -> "bot"
+
 let of_big_int : Z.t -> t = fun n -> NonBottom (ItvPure.of_big_int n)
 
 let of_int_lit : IntLit.t -> t = fun n -> NonBottom (ItvPure.of_int_lit n)
@@ -721,6 +733,8 @@ let incr = plus one
 let decr x = minus x one
 
 let set_lb lb = lift1 (ItvPure.set_lb lb)
+
+let set_ub ub = lift1 (ItvPure.set_ub ub)
 
 let set_lb_zero = lift1 ItvPure.set_lb_zero
 

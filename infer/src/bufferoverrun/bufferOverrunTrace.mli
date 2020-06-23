@@ -48,7 +48,7 @@ end
 module Issue : sig
   include PrettyPrintable.PrintableOrderedType
 
-  type binary = ArrayAccess | Binop
+  type binary = ArrayAccess | Binop | MapAccess
 
   val binary : Location.t -> binary -> Set.t -> Set.t -> t
   (** Construct issue trace of binary operation. When [binary] is [ArrayAccess], the former [Set.t]

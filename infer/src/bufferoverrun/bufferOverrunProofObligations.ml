@@ -102,7 +102,40 @@ type report_issue_type =
   | TaintedIssue of IssueType.t
 
 type checked_condition = {report_issue_type: report_issue_type; propagate: bool}
+  
+module MapAccessCondition = struct
+  type idxbase = 
+    Bottom of Itv.ItvPure.t | Itvidx of Itv.ItvPure.t [@@deriving compare]
 
+  type t = {itv: idxbase} [@@deriving compare]
+
+  let make value cur_idx =
+    match Dom.Val.get_itv value with
+    | NonBottom itvidx -> Some {itv= Itvidx itvidx}
+    | Bottom -> Some {itv= Bottom cur_idx}
+ 
+  let is_bot idx = match idx with | Bottom _ -> true | _ -> false
+
+  let get_symbols {itv} =
+    match itv with
+    | Bottom cur_idx -> ItvPure.get_symbols cur_idx 
+    | Itvidx itv_v -> ItvPure.get_symbols itv_v 
+
+  let check {itv} = 
+    if is_bot itv then  
+      {report_issue_type= Issue IssueType.map_invalid_access; propagate= false}
+    else
+      {report_issue_type= NotIssue; propagate= false}
+
+  let pp fmt {itv} = 
+    let cur_idx = match itv with | Bottom idx -> idx | _ -> Caml.failwith "NOT HAPPEN" in
+    F.fprintf fmt "index %a was not initialized\n" ItvPure.pp cur_idx 
+
+  let pp_description ~markup fmt {itv} = 
+    let cur_idx = match itv with | Bottom idx -> idx | _ -> Caml.failwith "NOT HAPPEN" in
+    F.fprintf fmt "index %a was not initialized\n" ItvPure.pp cur_idx 
+end
+      
 module AllocSizeCondition = struct
   type t = {length: ItvPure.t; can_be_zero: bool; taint: Dom.Taint.t} [@@deriving compare]
 
@@ -606,6 +639,7 @@ module Condition = struct
     | AllocSize of AllocSizeCondition.t
     | ArrayAccess of ArrayAccessCondition.t
     | BinaryOperation of BinaryOperationCondition.t
+    | MapAccess of MapAccessCondition.t
   [@@deriving compare]
 
   let equal = [%compare.equal: t]
@@ -616,6 +650,8 @@ module Condition = struct
 
   let make_binary_operation = Option.map ~f:(fun c -> BinaryOperation c)
 
+  let make_map_access = Option.map ~f:(fun c -> MapAccess c)
+
   let get_symbols = function
     | AllocSize c ->
         AllocSizeCondition.get_symbols c
@@ -623,6 +659,8 @@ module Condition = struct
         ArrayAccessCondition.get_symbols c
     | BinaryOperation c ->
         BinaryOperationCondition.get_symbols c
+    | MapAccess c ->
+        MapAccessCondition.get_symbols c
 
 
   let subst eval_sym eval_taint = function
@@ -674,6 +712,8 @@ module Condition = struct
         ArrayAccessCondition.pp fmt c
     | BinaryOperation c ->
         BinaryOperationCondition.pp fmt c
+    | MapAccess c ->
+        MapAccessCondition.pp fmt c
 
 
   let pp_description ~markup fmt = function
@@ -683,6 +723,8 @@ module Condition = struct
         ArrayAccessCondition.pp_description ~markup fmt c
     | BinaryOperation c ->
         BinaryOperationCondition.pp_description ~markup fmt c
+    | MapAccess c ->
+        MapAccessCondition.pp_description ~markup fmt c
 
 
   let check cond trace =
@@ -693,6 +735,8 @@ module Condition = struct
         ArrayAccessCondition.check c
     | BinaryOperation c ->
         BinaryOperationCondition.check c trace
+    | MapAccess c ->
+        MapAccessCondition.check c
 
 
   let is_array_access_of_void_ptr = function ArrayAccess {void_ptr} -> void_ptr | _ -> false
@@ -813,6 +857,7 @@ module ConditionWithTrace = struct
 
 
   let report_errors ~report (cwt, checked) =
+    F.fprintf F.std_formatter "FINAL : %a, %a\n" ConditionTrace.pp cwt.trace Condition.pp cwt.cond;
     match checked.report_issue_type with
     | NotIssue | SymbolicIssue ->
         ()
@@ -932,6 +977,13 @@ module ConditionSet = struct
     |> Condition.make_binary_operation
     |> add_opt location
          (ValTrace.Issue.(binary location Binop) lhs_traces rhs_traces)
+         latest_prune condset
+
+  let add_map_access location ~idx_traces ~value ~cur_idx ~latest_prune condset =
+    MapAccessCondition.make value cur_idx
+    |> Condition.make_map_access
+    |> add_opt location
+         (ValTrace.Issue.(binary location MapAccess) idx_traces idx_traces)
          latest_prune condset
 
 

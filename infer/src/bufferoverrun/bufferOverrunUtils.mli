@@ -69,11 +69,28 @@ module Check : sig
     -> PO.ConditionSet.checked_t
     -> PO.ConditionSet.checked_t
 
+  val map_access :
+       value: Dom.Val.t
+    -> cur_idx:Dom.Val.t
+    -> latest_prune:Dom.LatestPrune.t
+    -> Location.t
+    -> PO.ConditionSet.checked_t
+    -> PO.ConditionSet.checked_t
+
   val lindex :
        Typ.IntegerWidths.t
     -> array_exp:Exp.t
     -> index_exp:Exp.t
     -> last_included:bool
+    -> Dom.Mem.t
+    -> Location.t
+    -> PO.ConditionSet.checked_t
+    -> PO.ConditionSet.checked_t
+
+  val map_index :
+       Typ.IntegerWidths.t
+    -> array_exp:Exp.t
+    -> index_exp:Exp.t
     -> Dom.Mem.t
     -> Location.t
     -> PO.ConditionSet.checked_t

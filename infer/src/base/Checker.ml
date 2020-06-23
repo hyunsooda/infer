@@ -36,7 +36,6 @@ type t =
   | TOPL
   | Uninit
   | Mychecker
-  | PrintCapture
   | MisuseChecker
 [@@deriving equal, enumerate]
 
@@ -283,13 +282,14 @@ let config checker =
       ; cli_flags= Some {long= "mychecker"; deprecated= []; show_in_help= true}
       ; enabled_by_default= false
       ; activates= [] }
-  | PrintCapture ->
-      { name= "PrintCapture"
+  | MisuseChecker ->
+      { name= "MisuseChecker"
       ; support= supports_clang_and_java
-      ; short_documentation= "PrintCaptrue"
-      ; cli_flags= Some {long= "printcapture"; deprecated= []; show_in_help= true}
+      ; short_documentation= "MisuseChecker"
+      ; cli_flags= Some {long= "misusechecker"; deprecated= []; show_in_help= true}
       ; enabled_by_default= false
-      ; activates= [] }
+      ; activates= [BufferOverrunAnalysis] }
+      (*
   | MisuseChecker ->
       { name= "MisuseChecker"
       ; support= supports_clang_and_java
@@ -297,6 +297,7 @@ let config checker =
       ; cli_flags= Some {long= "misusechecker"; deprecated= []; show_in_help= true}
       ; enabled_by_default= false
       ; activates= [] }
+      *)
 
 
 let get_name c = (config c).name

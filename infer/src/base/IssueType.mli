@@ -250,8 +250,6 @@ val javascript_injection : t
 
 val lab_resource_leak : t
 
-val print_capture : t
-
 val misuse_checker : t
 
 val leak_after_array_abstraction : t
@@ -373,5 +371,7 @@ val vector_invalidation : t
 val weak_self_in_noescape_block : t
 
 val wrong_argument_number : t
+
+val map_invalid_access : t
 
 val unreachable_cost_call : kind:CostKind.t -> t

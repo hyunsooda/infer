@@ -183,3 +183,15 @@ infer/src/.project
 /infer/src/deadcode/dune
 _opam
 _coverage
+
+
+# vim
+*.swo
+*.swn
+*.swg
+*.swh
+*.swj
+*.swl
+*.swm
+*.swmn
+*.swo

@@ -150,6 +150,27 @@ let check_binop :
   | _ ->
       cond_set
 
+(*
+let check_map_binop :
+       Typ.IntegerWidths.t
+    -> bop:Binop.t
+    -> e1:Exp.t
+    -> e2:Exp.t
+    -> Location.t
+    -> Dom.Mem.t
+    -> PO.ConditionSet.checked_t
+    -> PO.ConditionSet.checked_t =
+ fun integer_type_widths ~bop ~e1 ~e2 location mem cond_set ->
+  cond_set
+  match bop with
+  | Binop.PlusPI ->
+      check_binop_array_access integer_type_widths ~is_plus:true ~e1 ~e2 location mem cond_set
+  | Binop.MinusPI ->
+      check_binop_array_access integer_type_widths ~is_plus:false ~e1 ~e2 location mem cond_set
+  | _ ->
+      cond_set
+*)
+
 let check_expr_for_array_access :
        ?sub_expr_only:bool
     -> Typ.IntegerWidths.t
@@ -191,6 +212,60 @@ let check_expr_for_array_access :
         check_binop integer_type_widths ~bop ~e1 ~e2 location mem cond_set
     | _ ->
         cond_set
+(*
+let check_expr_for_map_access :
+       ?sub_expr_only:bool
+    -> Typ.IntegerWidths.t
+    -> Exp.t
+    -> Location.t
+    -> Dom.Mem.t
+    -> PO.ConditionSet.checked_t
+    -> PO.ConditionSet.checked_t =
+ fun ?(sub_expr_only = false) integer_type_widths exp location mem cond_set ->
+  let rec check_sub_expr exp cond_set =
+    match exp with
+    | Exp.Lindex (array_exp, index_exp) ->
+        cond_set |> check_sub_expr array_exp |> check_sub_expr index_exp
+        |> BoUtils.Check.map_index integer_type_widths ~array_exp ~index_exp mem location
+(*
+        |> BoUtils.Check.lindex integer_type_widths ~array_exp ~index_exp ~last_included:false mem
+             location
+*)
+    | Exp.BinOp (_, e1, e2) ->
+        cond_set |> check_sub_expr e1 |> check_sub_expr e2
+    | Exp.Lfield (e, _, _) | Exp.UnOp (_, e, _) | Exp.Exn e ->
+        check_sub_expr e cond_set
+    | Exp.Cast (_, e) ->
+        check_sub_expr e cond_set
+    | Exp.Closure {captured_vars} ->
+        List.fold captured_vars ~init:cond_set ~f:(fun cond_set (e, _, _) ->
+            check_sub_expr e cond_set )
+    | Exp.Var _ | Exp.Lvar _ | Exp.Const _ | Exp.Sizeof _ ->
+        cond_set
+  in
+  let cond_set = check_sub_expr exp cond_set in
+  if sub_expr_only then cond_set
+  else
+    match exp with
+    | Exp.Var _ ->
+        let arr = Sem.eval integer_type_widths exp mem in
+        let idx = Dom.Val.Itv.zero in
+        let latest_prune = Dom.Mem.get_latest_prune mem in
+
+        let arr_loc = Dom.Val.get_array_locs arr in
+        let arr_idxs = Dom.Mem.find_set arr_loc mem in
+
+(*
+        BoUtils.Check.array_access ~arr ~idx ~is_plus:true ~last_included:false ~latest_prune
+          location cond_set
+*)
+        BoUtils.Check.map_access ~arr ~cur_idx:idx ~idx_range:arr_idxs location ~latest_prune cond_set
+    | Exp.BinOp (bop, e1, e2) ->
+        check_map_binop integer_type_widths ~bop ~e1 ~e2 location mem cond_set
+        (* check_binop integer_type_widths ~bop ~e1 ~e2 location mem cond_set *)
+    | _ ->
+        cond_set
+*)
 
 let check_binop_for_integer_overflow integer_type_widths pname bop ~lhs ~rhs location mem cond_set =
   match bop with
@@ -267,45 +342,68 @@ let check_instr :
     -> PO.ConditionSet.checked_t =
  fun get_checks_summary get_summary get_formals pname tenv integer_type_widths node instr mem
      cond_set ->
+  let check_call_instr params location callee_pname cond_set =
+    let cond_set =
+      List.fold params ~init:cond_set ~f:(fun cond_set (exp, _) ->
+          check_expr_for_integer_overflow integer_type_widths pname exp location mem cond_set )
+    in
+    let fun_arg_list =
+      List.map params ~f:(fun (exp, typ) ->
+          ProcnameDispatcher.Call.FuncArg.{exp; typ; arg_payload= ()} )
+    in
+    match Models.Call.dispatch tenv callee_pname fun_arg_list with
+    | Some {Models.check} ->
+        let model_env =
+          let node_hash = CFG.Node.hash node in
+          BoUtils.ModelEnv.mk_model_env pname ~node_hash location tenv integer_type_widths
+            get_summary
+        in
+        check model_env mem cond_set
+    | None -> (
+        let {BoUtils.ReplaceCallee.pname= callee_pname; params; is_params_ref} =
+          BoUtils.ReplaceCallee.replace_make_shared tenv get_formals callee_pname params
+        in
+        match (get_checks_summary callee_pname, get_formals callee_pname) with
+        | Some callee_condset, Some callee_formals ->
+            instantiate_cond ~is_params_ref integer_type_widths callee_pname callee_formals params
+              mem callee_condset location
+            |> PO.ConditionSet.join cond_set
+        | _, _ ->
+          (* unknown call / no inferbo payload *) cond_set )
+  in
+
   match instr with
   | Sil.Load {e= exp; loc= location} ->
-      cond_set
-      |> check_expr_for_array_access integer_type_widths exp location mem
-      |> check_expr_for_integer_overflow integer_type_widths pname exp location mem
+			if Util.is_map exp mem then cond_set
+			else
+				cond_set
+				|> check_expr_for_array_access integer_type_widths exp location mem
+				|> check_expr_for_integer_overflow integer_type_widths pname exp location mem
+				(* |> check_expr_for_map_access integer_type_widths exp location mem *)
   | Sil.Store {e1= lexp; e2= rexp; loc= location} ->
-      cond_set
-      |> check_expr_for_array_access integer_type_widths lexp location mem
-      |> check_expr_for_array_access ~sub_expr_only:true integer_type_widths rexp location mem
-      |> check_expr_for_integer_overflow integer_type_widths pname lexp location mem
-      |> check_expr_for_integer_overflow integer_type_widths pname rexp location mem
+      if Util.is_map lexp mem || Util.is_map rexp mem then cond_set
+      else
+				cond_set
+				|> check_expr_for_array_access integer_type_widths lexp location mem
+				|> check_expr_for_array_access ~sub_expr_only:true integer_type_widths rexp location mem
+				|> check_expr_for_integer_overflow integer_type_widths pname lexp location mem
+				|> check_expr_for_integer_overflow integer_type_widths pname rexp location mem
   | Sil.Call (_, Const (Cfun callee_pname), params, location, _) -> (
-      let cond_set =
-        List.fold params ~init:cond_set ~f:(fun cond_set (exp, _) ->
-            check_expr_for_integer_overflow integer_type_widths pname exp location mem cond_set )
+    (* Ignore store instruction when map variable is appeared in LHS *)
+			let instrs = CFG.Node.underlying_node node |> Procdesc.Node.get_instrs in
+      let is_map =
+				Instrs.fold instrs ~init:false ~f:(fun is_map instr_ ->
+          (match instr_ with
+          | Store {e1= lexp} ->
+              (* Sil.pp_instr ~print_types:false Pp.text F.std_formatter instr_; Printf.printf "\n"; aa *)
+              (match lexp with
+              | Exp.Var _ ->
+                  if Util.is_cpp_map (Procname.to_string callee_pname) then true
+                  else is_map
+              | _ -> is_map)
+          | _ -> is_map ) )
       in
-      let fun_arg_list =
-        List.map params ~f:(fun (exp, typ) ->
-            ProcnameDispatcher.Call.FuncArg.{exp; typ; arg_payload= ()} )
-      in
-      match Models.Call.dispatch tenv callee_pname fun_arg_list with
-      | Some {Models.check} ->
-          let model_env =
-            let node_hash = CFG.Node.hash node in
-            BoUtils.ModelEnv.mk_model_env pname ~node_hash location tenv integer_type_widths
-              get_summary
-          in
-          check model_env mem cond_set
-      | None -> (
-          let {BoUtils.ReplaceCallee.pname= callee_pname; params; is_params_ref} =
-            BoUtils.ReplaceCallee.replace_make_shared tenv get_formals callee_pname params
-          in
-          match (get_checks_summary callee_pname, get_formals callee_pname) with
-          | Some callee_condset, Some callee_formals ->
-              instantiate_cond ~is_params_ref integer_type_widths callee_pname callee_formals params
-                mem callee_condset location
-              |> PO.ConditionSet.join cond_set
-          | _, _ ->
-              (* unknown call / no inferbo payload *) cond_set ) )
+      if is_map then cond_set else check_call_instr params location callee_pname cond_set )
   | Sil.Prune (exp, location, _, _) ->
       check_expr_for_integer_overflow integer_type_widths pname exp location mem cond_set
   | _ ->
@@ -396,7 +494,6 @@ let compute_checks :
     -> BufferOverrunAnalysis.invariant_map
     -> checks =
  fun get_checks_summary get_summary get_formals pname tenv integer_type_widths cfg inv_map ->
-      let _ = Printf.printf "!!!!!!!!!!\n" in
   CFG.fold_nodes cfg
     ~f:
       (check_node get_checks_summary get_summary get_formals pname tenv integer_type_widths cfg
@@ -459,8 +556,24 @@ let checker ({InterproceduralAnalysis.proc_desc; tenv; exe_env; analyze_dependen
         let get_formals callee_pname =
           AnalysisCallbacks.get_proc_desc callee_pname >>| Procdesc.get_pvar_formals
         in
+(*
+        let uniq_nodes = Util.get_uniq_cfg cfg in
+        let uniq_states = Util.get_uniq_states inv_map uniq_nodes in
+        Util.print_states uniq_states uniq_nodes;
+        Printf.printf "\ntotal cfg len : %d\n" (Util.get_all_states cfg inv_map |> Stdlib.List.length);
+        *)
+
+
+
         compute_checks get_checks_summary get_summary get_formals proc_name tenv integer_type_widths
           cfg inv_map
       in
+
+(*
+      Printf.printf "WWWWWWWWWWWWWWWWWWWWWWW\n";
+      F.fprintf F.std_formatter "FINAL\n\n %a\n" PO.ConditionSet.pp checks.cond_set;
+*)
+
+
       report_errors analysis_data checks ;
       Some (get_checks_summary checks) )

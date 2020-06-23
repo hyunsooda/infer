@@ -70,6 +70,7 @@ module Val : sig
     ; powloc: AbsLoc.PowLoc.t  (** Simple pointers *)
     ; arrayblk: ArrayBlk.t  (** Array blocks *)
     ; traces: BufferOverrunTrace.Set.t }
+    
 
   include AbstractDomain.S with type t := t
 

@@ -160,6 +160,8 @@ val of_bool : Boolean.t -> t
 
 val of_int : int -> t
 
+val to_string : t -> string
+
 val of_big_int : Z.t -> t
 
 val of_int_lit : IntLit.t -> t
@@ -181,6 +183,8 @@ val decr : t -> t
 val incr : t -> t
 
 val set_lb : Bound.t -> t -> t
+
+val set_ub : Bound.t -> t -> t
 
 val set_lb_zero : t -> t
 

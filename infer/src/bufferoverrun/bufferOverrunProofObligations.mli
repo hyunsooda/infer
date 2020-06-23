@@ -8,6 +8,7 @@
 open! IStd
 open! AbstractDomain.Types
 module ItvPure = Itv.ItvPure
+module Dom = BufferOverrunDomain
 
 module Condition : sig
   type t
@@ -64,6 +65,15 @@ module ConditionSet : sig
     -> rhs:ItvPure.t
     -> lhs_traces:BufferOverrunTrace.Set.t
     -> rhs_traces:BufferOverrunTrace.Set.t
+    -> latest_prune:BufferOverrunDomain.LatestPrune.t
+    -> checked_t
+    -> checked_t
+
+  val add_map_access :
+       Location.t
+    -> idx_traces:BufferOverrunTrace.Set.t
+    -> value:Dom.Val.t
+    -> cur_idx:ItvPure.t
     -> latest_prune:BufferOverrunDomain.LatestPrune.t
     -> checked_t
     -> checked_t

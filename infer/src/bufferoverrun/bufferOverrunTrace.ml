@@ -250,6 +250,7 @@ module Issue = struct
     | ArrayAccess
     (* offset, length *)
     | Binop
+    | MapAccess
   [@@deriving compare]
 
   type t =
@@ -287,7 +288,7 @@ module Issue = struct
 
   let exists_str ~f = has_common ~f:(Set.exists_str ~f)
 
-  let binary_labels = function ArrayAccess -> ("Offset", "Length") | Binop -> ("LHS", "RHS")
+  let binary_labels = function ArrayAccess -> ("Offset", "Length") | Binop -> ("LHS", "RHS") | MapAccess -> ("index", "index")
 
   let pp_elem f = function Alloc -> F.pp_print_string f "Alloc"
 
@@ -296,6 +297,8 @@ module Issue = struct
         F.pp_print_string f "ArrayAccess"
     | Binop ->
         F.pp_print_string f "Binop"
+    | MapAccess ->
+        F.pp_print_string f "MapAccess"
 
 
   let pp_location = Location.pp_file_pos
@@ -318,6 +321,8 @@ module Issue = struct
         "Array access: " ^ description
     | Binop ->
         "Binary operation: " ^ description
+    | MapAccess ->
+        "Map access : " ^ description
 
 
   let format_label label = F.sprintf "<%s trace>" label

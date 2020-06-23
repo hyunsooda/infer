@@ -85,14 +85,14 @@ module TransferFunctions = struct
       ~callee_exit_mem ({Dom.eval_locpath} as eval_sym_trace) mem location =
     let formal_locs =
       List.fold callee_formals ~init:LocSet.empty ~f:(fun acc (formal, _) ->
-          LocSet.add (Loc.of_pvar formal) acc )
+          LocSet.add (Loc.of_pvar formal) acc)
     in
     let copy_reachable_locs_from locs mem =
       let copy loc acc =
         Option.value_map (Dom.Mem.find_opt loc callee_exit_mem) ~default:acc ~f:(fun v ->
             let locs = PowLoc.subst_loc loc eval_locpath in
             let v = Dom.Val.subst v eval_sym_trace location in
-            PowLoc.fold (fun loc acc -> Dom.Mem.add_heap loc v acc) locs acc )
+            PowLoc.fold (fun loc acc -> Dom.Mem.add_heap loc v acc) locs acc)
       in
       let reachable_locs = Dom.Mem.get_reachable_locs_from callee_formals locs callee_exit_mem in
       LocSet.fold copy (LocSet.diff reachable_locs formal_locs) mem
@@ -107,7 +107,7 @@ module TransferFunctions = struct
                   Some loc
               | _ ->
                   None
-            with Not_found_s _ | Caml.Not_found -> None )
+            with Not_found_s _ | Caml.Not_found -> None)
       in
       match Dom.Mem.find_ret_alias callee_exit_mem with
       | Bottom ->
@@ -171,7 +171,7 @@ module TransferFunctions = struct
   let is_java_enum_values tenv callee_pname =
     Option.exists (Procname.get_class_type_name callee_pname) ~f:(fun callee_class_name ->
         PatternMatch.is_java_enum tenv callee_class_name
-        && String.equal (Procname.get_method callee_pname) "values" )
+        && String.equal (Procname.get_method callee_pname) "values")
 
 
   let assign_java_enum_values get_summary id ~caller_pname ~callee_pname mem =
@@ -181,7 +181,7 @@ module TransferFunctions = struct
       IOption.exists2 caller_class_name callee_class_name
         ~f:(fun caller_class_name callee_class_name ->
           Procname.is_java_class_initializer caller_pname
-          && Typ.equal_name caller_class_name callee_class_name )
+          && Typ.equal_name caller_class_name callee_class_name)
     in
     match callee_class_name with
     | Some (JavaClass class_name as typename) ->
@@ -204,7 +204,7 @@ module TransferFunctions = struct
             else
               let arr_locs = Dom.Val.get_all_locs v in
               let arr_v = Dom.Mem.find_set arr_locs clinit_mem in
-              Dom.Mem.add_heap_set arr_locs arr_v mem )
+              Dom.Mem.add_heap_set arr_locs arr_v mem)
     | _ ->
         assert false
 
@@ -214,12 +214,12 @@ module TransferFunctions = struct
     let is_known_java_static_field fn =
       let fieldname = Fieldname.to_string fn in
       String.Set.exists known_java_static_fields ~f:(fun suffix ->
-          String.is_suffix fieldname ~suffix )
+          String.is_suffix fieldname ~suffix)
     in
     let copy_reachable_locs_from loc ~from_mem ~to_mem =
       let copy loc acc =
         Option.value_map (Dom.Mem.find_opt loc from_mem) ~default:acc ~f:(fun v ->
-            Dom.Mem.add_heap loc v acc )
+            Dom.Mem.add_heap loc v acc)
       in
       let reachable_locs = Dom.Mem.get_reachable_locs_from [] (LocSet.singleton loc) from_mem in
       LocSet.fold copy reachable_locs to_mem
@@ -230,7 +230,7 @@ module TransferFunctions = struct
           let copy_from_class_init () =
             Option.value_map (get_summary clinit_pname) ~default:mem ~f:(fun clinit_mem ->
                 let field_loc = Loc.append_field ~typ:field_typ (Loc.of_pvar pvar) fn in
-                copy_reachable_locs_from field_loc ~from_mem:clinit_mem ~to_mem:mem )
+                copy_reachable_locs_from field_loc ~from_mem:clinit_mem ~to_mem:mem)
           in
           match field_typ.Typ.desc with
           | Typ.Tptr ({desc= Tstruct _}, _) when is_known_java_static_field fn ->
@@ -240,7 +240,7 @@ module TransferFunctions = struct
           | Typ.Tptr ({desc= Tarray _}, _) ->
               copy_from_class_init ()
           | _ ->
-              mem )
+              mem)
 
 
   let modeled_load_of_empty_collection_opt =
@@ -287,6 +287,7 @@ module TransferFunctions = struct
   let exec_instr : Dom.Mem.t -> analysis_data -> CFG.Node.t -> Sil.instr -> Dom.Mem.t =
    fun mem {interproc= {proc_desc; tenv}; get_summary; get_formals; oenv= {integer_type_widths}}
        node instr ->
+    (* Dom.Mem.pp Format.std_formatter mem; Printf.printf "\n"; *)
     match instr with
     | Load {id} when Ident.is_none id ->
         mem
@@ -299,8 +300,9 @@ module TransferFunctions = struct
         load_global_constant get_summary (id, typ) pvar location mem
           ~find_from_initializer:(fun callee_mem ->
             let locs = Dom.Mem.find (Loc.of_pvar pvar) callee_mem |> Dom.Val.get_all_locs in
-            Dom.Mem.find_set locs callee_mem )
+            Dom.Mem.find_set locs callee_mem)
     | Load {id; e= exp; typ; loc= location} -> (
+        (* F.fprintf F.std_formatter "\n\nLOAD3: %a  \n\n" (Sil.pp_instr ~print_types:false Pp.text) instr; *)
         let model_env =
           let pname = Procdesc.get_proc_name proc_desc in
           let node_hash = CFG.Node.hash node in
@@ -317,8 +319,29 @@ module TransferFunctions = struct
             in
             let represents_multiple_values = is_array_access_exp exp in
             let modeled_range = modeled_range_of_exp location exp mem in
-            BoUtils.Exec.load_locs ~represents_multiple_values ~modeled_range id typ
-              (Sem.eval_locs exp mem) mem )
+            let locs = Sem.eval_locs exp mem in
+            PowLoc.fold
+              (fun loc mem ->
+                let loc_str = Util.get_loc_str loc in
+                let maploc =
+                  if String.is_prefix ~prefix:"std::map" loc_str then
+                    match Loc.get_allocsite loc with
+                    | None ->
+                        None
+                    | Some allocsite ->
+                        let itv_v = Sem.eval integer_type_widths exp mem |> Dom.Val.get_itv in
+                        let maploc = Loc.of_maploc allocsite itv_v in
+                        Some maploc
+                  else None
+                in
+                match maploc with
+                | None ->
+                    BoUtils.Exec.load_locs ~represents_multiple_values ~modeled_range id typ
+                      (Sem.eval_locs exp mem) mem
+                | Some maploc ->
+                    BoUtils.Exec.load_locs ~represents_multiple_values ~modeled_range id typ
+                      (PowLoc.singleton maploc) mem)
+              locs mem )
     | Store {e2= Exn _} when Language.curr_language_is Java ->
         Dom.Mem.exc_raised
     | Store {e1= tgt_exp; e2= Const (Const.Cstr _) as src; loc= location}
@@ -350,6 +373,7 @@ module TransferFunctions = struct
         let do_alloc = not (Sem.is_stack_exp exp1 mem) in
         BoUtils.Exec.decl_string model_env ~do_alloc locs s mem
     | Store {e1= exp1; typ; e2= exp2; loc= location} ->
+        (* Printf.printf "STORE: [1]%s [2]%s\n" (Exp.to_string exp1) (Exp.to_string exp2); *)
         let locs = Sem.eval_locs exp1 mem in
         let v =
           Sem.eval integer_type_widths exp2 mem |> Dom.Val.add_assign_trace_elem location locs
@@ -367,8 +391,18 @@ module TransferFunctions = struct
           | _ ->
               mem
         in
-        let mem = Dom.Mem.update_latest_prune ~updated_locs:locs exp1 exp2 mem in
-        mem
+        PowLoc.fold
+          (fun loc mem ->
+            let itv_v = Sem.eval integer_type_widths exp1 mem |> Dom.Val.get_itv in
+            if String.is_prefix ~prefix:"std::map" (Util.get_loc_str loc) then
+              match Loc.get_allocsite loc with
+              | None ->
+                  mem
+              | Some allocsite ->
+                  let maploc = Loc.of_maploc allocsite itv_v in
+                  Dom.Mem.update_mem (PowLoc.singleton maploc) v mem
+            else mem)
+          locs mem
     | Prune (exp, location, _, _) ->
         Sem.Prune.prune location integer_type_widths exp mem
     | Call ((id, _), Const (Cfun callee_pname), _, _, _) when is_java_enum_values tenv callee_pname
@@ -381,7 +415,7 @@ module TransferFunctions = struct
         let mem = Dom.Mem.add_stack_loc (Loc.of_id id) mem in
         let fun_arg_list =
           List.map params ~f:(fun (exp, typ) ->
-              ProcnameDispatcher.Call.FuncArg.{exp; typ; arg_payload= ()} )
+              ProcnameDispatcher.Call.FuncArg.{exp; typ; arg_payload= ()})
         in
         match Models.Call.dispatch tenv callee_pname fun_arg_list with
         | Some {Models.exec} ->
@@ -390,7 +424,27 @@ module TransferFunctions = struct
               BoUtils.ModelEnv.mk_model_env callee_pname ~node_hash location tenv
                 integer_type_widths get_summary
             in
-            exec model_env ~ret mem
+            (* Printf.printf "(%s )FOUND??????????????????????????????\n" (CFG.Node.loc node |> Location.to_string); *)
+            let mem = exec model_env ~ret mem in
+            if
+              String.is_prefix (Procname.to_string callee_pname) ~prefix:"std::map"
+              && String.is_suffix (Procname.to_string callee_pname) ~suffix:"::operator[]"
+            then
+              let idx_exp =
+                match List.last params with
+                | None ->
+                    Stdlib.failwith "9999999999999999"
+                | Some (idx, _) ->
+                    idx
+              in
+              let idx_pvar = Exp.program_vars idx_exp |> Sequence.to_list |> Stdlib.List.hd in
+              let idx_loc = Loc.of_pvar idx_pvar in
+              let value = Dom.Mem.find idx_loc mem in
+              let itv = Dom.Val.get_itv value in
+              let tmp_v = Dom.Mem.find (Loc.of_id id) mem in
+              let new_v = {tmp_v with itv} in
+              Dom.Mem.update_mem (Loc.of_id id |> PowLoc.singleton) new_v mem
+            else mem
         | None -> (
             let {BoUtils.ReplaceCallee.pname= callee_pname; params; is_params_ref} =
               BoUtils.ReplaceCallee.replace_make_shared tenv get_formals callee_pname params
@@ -403,8 +457,7 @@ module TransferFunctions = struct
                 instantiate_mem ~is_params_ref integer_type_widths ret callee_formals callee_pname
                   params mem callee_exit_mem location
             | _, `NotFound ->
-                (* This may happen for procedures with a biabduction model too. *)
-                L.d_printfln_escaped "/!\\ Unknown call to %a" Procname.pp callee_pname ;
+                (* Printf.printf "(%s )UNKNOWN??????????????????????????????\n" (CFG.Node.loc node |> Location.to_string); *)
                 Dom.Mem.add_unknown_from ret ~callee_pname ~location mem ) )
     | Call (((id, _) as ret), fun_exp, _, location, _) ->
         let mem = Dom.Mem.add_stack_loc (Loc.of_id id) mem in

@@ -125,8 +125,33 @@ module Allocsite = struct
         Symb.SymbolPath.exists_pvar_partial ~f path
 end
 
+module MapLoc = struct
+  type t = Allocsite.t * IdxDom.Idx.t [@@deriving compare] 
+
+  let make allocsite idx = (allocsite, idx)
+
+  let get_allocsite_str (allocsite : Allocsite.t) =
+    match allocsite with
+    | Unknown -> "" 
+    | Symbol sym -> 
+        (match Symb.SymbolPath.get_pvar sym with
+        | None -> ""
+        | Some pvar -> Pvar.get_simplified_name pvar 
+        )
+    | Known site -> site.proc_name
+    | LiteralString literal_str -> literal_str
+
+  let to_string maploc =
+    let allocsite, idx = maploc in
+    (get_allocsite_str allocsite) ^ (IdxDom.Idx.to_string idx)
+
+  let pp fmt maploc =
+    let allocsite, idx = maploc in
+    F.fprintf fmt "<%a, %a>\n" Allocsite.pp allocsite IdxDom.Idx.pp idx
+end
+
 module Loc = struct
-  type prim = Var of Var.t | Allocsite of Allocsite.t [@@deriving compare]
+  type prim = Var of Var.t | Allocsite of Allocsite.t | Maploc of MapLoc.t [@@deriving compare]
 
   type t = prim BoField.t [@@deriving compare]
 
@@ -134,17 +159,23 @@ module Loc = struct
 
   let of_allocsite a = BoField.Prim (Allocsite a)
 
+  let of_maploc a i = BoField.Prim (Maploc (MapLoc.make a i))
+
+  let get_allocsite = function
+    | BoField.Prim (Allocsite a) -> Some a
+    | _ -> None
+
   let prim_append_field ?typ l0 fn _aux _depth = function
     | Allocsite a as l when Allocsite.is_unknown a ->
         BoField.Prim l
-    | Var _ | Allocsite _ ->
+    | Var _ | Allocsite _ | Maploc _ ->
         BoField.Field {prefix= l0; fn; typ}
 
 
   let prim_append_star_field l0 fn _aux = function
     | Allocsite a as l when Allocsite.is_unknown a ->
         BoField.Prim l
-    | Var _ | Allocsite _ ->
+    | Var _ | Allocsite _ | Maploc _ ->
         BoField.StarField {prefix= l0; last_field= fn}
 
 
@@ -169,6 +200,9 @@ module Loc = struct
         false
     | BoField.Prim (Allocsite a) ->
         Allocsite.is_unknown a
+    | BoField.Prim (Maploc maploc) ->
+        let a, _ = maploc in
+        Allocsite.is_unknown a
     | BoField.(Field {prefix= x} | StarField {prefix= x}) ->
         is_unknown x
 
@@ -184,6 +218,8 @@ module Loc = struct
         else F.pp_print_string fmt s
     | BoField.Prim (Allocsite a) ->
         Allocsite.pp_paren ~paren fmt a
+    | BoField.Prim (Maploc maploc) ->
+        MapLoc.pp fmt maploc 
     | BoField.Field
         { prefix=
             Prim
@@ -243,6 +279,9 @@ module Loc = struct
         true
     | BoField.Prim (Allocsite a) ->
         Allocsite.is_pretty a
+    | BoField.Prim (Maploc maploc) ->
+        let a, _ = maploc in
+        Allocsite.is_pretty a
     | BoField.Field {prefix= loc} | StarField {prefix= loc} ->
         is_pretty loc
 
@@ -297,7 +336,7 @@ module Loc = struct
   let rec is_global = function
     | BoField.Prim (Var (Var.ProgramVar pvar)) ->
         Pvar.is_global pvar
-    | BoField.Prim (Var (Var.LogicalVar _) | Allocsite _) ->
+    | BoField.Prim (Var (Var.LogicalVar _) | Allocsite _ | Maploc _) ->
         false
     | BoField.(Field {prefix= loc} | StarField {prefix= loc}) ->
         is_global loc
@@ -316,6 +355,11 @@ module Loc = struct
         Allocsite.get_path allocsite
         |> Option.bind ~f:Symb.SymbolPath.get_pvar
         |> Option.bind ~f:initializer_of_pvar
+    | BoField.Prim (Maploc maploc) ->
+        let allocsite, _ = maploc in
+        Allocsite.get_path allocsite
+        |> Option.bind ~f:Symb.SymbolPath.get_pvar
+        |> Option.bind ~f:initializer_of_pvar
     | BoField.(Field {prefix= loc} | StarField {prefix= loc}) ->
         get_global_array_initializer loc
 
@@ -326,6 +370,9 @@ module Loc = struct
     | BoField.Prim (Var (ProgramVar pvar)) ->
         Some (Symb.SymbolPath.of_pvar pvar)
     | BoField.Prim (Allocsite allocsite) ->
+        Allocsite.get_path allocsite
+    | BoField.Prim (Maploc maploc) ->
+        let allocsite, _ = maploc in
         Allocsite.get_path allocsite
     | BoField.Field {prefix= l; fn; typ} ->
         Option.map (get_path l) ~f:(fun p -> Symb.SymbolPath.append_field ?typ p fn)
@@ -338,6 +385,9 @@ module Loc = struct
         None
     | BoField.Prim (Allocsite allocsite) ->
         Allocsite.get_param_path allocsite
+    | BoField.Prim (Maploc maploc) ->
+        let allocsite, _ = maploc in
+        Allocsite.get_param_path allocsite
     | BoField.Field {prefix= l; fn} ->
         Option.map (get_param_path l) ~f:(fun p -> Symb.SymbolPath.append_field p fn)
     | BoField.StarField {prefix; last_field} ->
@@ -349,6 +399,9 @@ module Loc = struct
     | BoField.Prim (Var _) ->
         false
     | BoField.Prim (Allocsite allocsite) ->
+        Allocsite.represents_multiple_values allocsite
+    | BoField.Prim (Maploc maploc) ->
+        let allocsite, _ = maploc in
         Allocsite.represents_multiple_values allocsite
     | BoField.Field _ as x when is_c_strlen x || is_java_collection_internal_array x ->
         false
@@ -365,6 +418,9 @@ module Loc = struct
         f pvar
     | BoField.Prim (Allocsite allocsite) ->
         Allocsite.exists_pvar ~f allocsite
+    | BoField.Prim (Maploc maploc) ->
+        let allocsite, _ = maploc in
+        Allocsite.exists_pvar ~f allocsite
     | BoField.(Field {prefix= l} | StarField {prefix= l}) ->
         exists_pvar ~f l
 
@@ -377,7 +433,7 @@ module Loc = struct
     match x with
     | BoField.Field {prefix= l; fn} ->
         append_field l fn ~typ
-    | BoField.(StarField _ | Prim (Var _ | Allocsite _)) ->
+    | BoField.(StarField _ | Prim (Var _ | Allocsite _ | Maploc _)) ->
         x
 end
 

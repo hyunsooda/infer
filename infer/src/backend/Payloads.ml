@@ -16,8 +16,8 @@ type t =
   ; class_loads: ClassLoadsDomain.summary option
   ; cost: CostDomain.summary option
   ; lab_resource_leaks: ResourceLeakDomain.summary option
-  ; my_print_checker: PrintDomain.NullTable.t option
-  ; my_misuse_checker: Mapdomain.MapDomain.t option
+  (*; my_misuse_checker: Mapdomain.MapDomainTable.t option*)
+  ; my_misuse_checker: BufferOverrunCheckerSummary.t option
   ; litho_required_props: LithoDomain.summary option
   ; pulse: PulseSummary.t option
   ; purity: PurityDomain.summary option
@@ -49,9 +49,8 @@ let fields =
     ~quandary:(fun f -> mk f "Quandary" QuandarySummary.pp)
     ~racerd:(fun f -> mk f "RacerD" RacerDDomain.pp_summary)
     ~lab_resource_leaks:(fun f -> mk f "Resource Leaks Lab" ResourceLeakDomain.pp)
-    (*~my_print_checker:(fun f -> mk f "Print function capture checker" (F.fprintf F.std_formatter "hyunsoo shin"))*)
-    ~my_print_checker:(fun f -> mk f "Print function capture checker" PrintDomain.NullTable.pp )
-    ~my_misuse_checker:(fun f -> mk f "C++ Map API misuse checker" Mapdomain.MapDomain.pp )
+    (*~my_misuse_checker:(fun f -> mk f "C++ Map API misuse checker" Mapdomain.MapDomainTable.pp )*)
+    ~my_misuse_checker:(fun f -> mk f "C++ Map API misuse checker" BufferOverrunCheckerSummary.pp)
     ~siof:(fun f -> mk f "Siof" SiofDomain.Summary.pp)
     ~starvation:(fun f -> mk f "Starvation" StarvationDomain.pp_summary)
     ~nullsafe:(fun f -> mk f "Nullsafe" NullsafeSummary.pp)
@@ -71,7 +70,6 @@ let empty =
   ; class_loads= None
   ; cost= None
   ; lab_resource_leaks= None
-  ; my_print_checker= None
   ; my_misuse_checker= None
   ; litho_required_props= None
   ; pulse= None
