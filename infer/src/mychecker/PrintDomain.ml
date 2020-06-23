@@ -276,6 +276,7 @@ module NullTable : TABLE = struct
     if is_same then () else Stdlib.failwith "next labels are differnet"
 
   let leq ~lhs ~rhs = 
+    Printf.printf "LEQ\n";
     let lhs_table, lhs_next_lines = lhs in
     let rhs_table, rhs_next_lines = rhs in
     must_same lhs_next_lines rhs_next_lines;

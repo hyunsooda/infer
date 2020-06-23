@@ -25,6 +25,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let node = CFG.Node.underlying_node cfg in
     Procdesc.Node.get_succs node
 
+  let update_cur_table new_mem cur_mem cur_line table =
+    if M.leq new_mem cur_mem then table
+    else T.add cur_line new_mem table
+
   (** Take an abstract state and instruction, produce a new abstract state *)
   let exec_instr (astate : T.t)
       {InterproceduralAnalysis.proc_desc= procdesc; tenv= _; analyze_dependency= _; _} cfg
@@ -54,18 +58,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
             let joined_nullness = N.join N.nonnull cur_nullness in
             M.add lhs_varinfo joined_nullness cur_mem
         in
-        let table = T.add cur_loc.line new_mem cur_table in
+        (* let table = T.add cur_loc.line new_mem cur_table in *)
+        let table = update_cur_table new_mem cur_mem cur_loc.line cur_table in
         let table =
           Stdlib.List.fold_left (fun table next_label ->
             let next_loc =
               CFG.Node.of_underlying_node next_label |> CFG.Node.loc
             in
-            (*
-            let m =
-              M.add (V.of_variable lhs_var) cur_nullness new_mem
-              (*M.add (V.of_variable lhs_var) cur_nullness cur_mem *)
-            in
-            *)
             T.add next_loc.line new_mem table
           ) table next_labels
         in
