@@ -9,6 +9,7 @@ open! IStd
 
 module F = Format
 
+(*****************************************************************)
 module type NULLNESS = sig 
   type t = Bottom | Null | Nonnull | Top 
 
@@ -111,6 +112,7 @@ module type TABLE = sig
 
   val pp : Format.formatter -> t -> unit
 end
+(*****************************************************************)
 
 module Nullness : NULLNESS = struct
   type t = Bottom | Null | Nonnull | Top
@@ -160,7 +162,6 @@ module Nullness : NULLNESS = struct
 end
 
 module Variable : VARIABLE = struct
-  (*type t = Location.t * (Var.t * Typ.t)*)
   type t = (Var.t * Typ.t)
 
   let compare = Stdlib.compare
@@ -171,16 +172,11 @@ module Variable : VARIABLE = struct
   let pp fmt variable =
     let (var, typ) = variable in
     let typ_pp = Typ.pp Pp.text in
-    (*
-    F.fprintf fmt "loc : %a,  var : %a, typ : %a " 
-    Location.pp loc Var.pp var typ_pp typ
-    *)
     F.fprintf fmt "var : %a, typ : %a " 
     Var.pp var typ_pp typ
 
 
   (* dummy(loc) * null ident(var) * null type(typ) *)
-  (*let initial = (Location.dummy, ((Ident.create_none () |> Var.of_id ), Typ.void ))*)
   let initial = (((Ident.create_none () |> Var.of_id ), Typ.void ))
 end
 
